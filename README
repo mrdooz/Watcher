@@ -1,0 +1,56 @@
+Standalone file watcher
+
+Communicates via WM_COPYDATA messages.
+
+Sends a token to the client when that watch has changed. I probably want to change this to also
+send file names, otherwise directory support is pretty limited.
+
+#pragma pack(push, 1)
+struct WatchDataBase {
+  WatchDataBase(bool add, int token, HWND hwnd) : add(add), token(token), hwnd(hwnd) {}
+  bool add;
+  int token;
+  HWND hwnd;
+};
+
+struct WatchDataAdd : public WatchDataBase {
+  WatchDataAdd(bool add, int token, HWND hwnd) : WatchDataBase(add, token, hwnd) {}
+  char path[MAX_PATH];
+  char filter[MAX_PATH];
+  int flags;
+};
+#pragma pack(pop)
+
+bool addFileWatch(const char *path, const char *filter, int token, HWND hwnd) {
+  HWND wnd = FindWindow(nullptr, "Watcher");
+  if (!wnd)
+    return false;
+
+  WatchDataAdd data(true, token, hwnd);
+  strcpy(data.path, path);
+  strcpy(data.filter, filter);
+  data.flags = ~0;
+
+  COPYDATASTRUCT cds;
+  cds.dwData = 0;
+  cds.cbData = sizeof(data);
+  cds.lpData = &data;
+  SendMessage(wnd, WM_COPYDATA, (WPARAM)gWnd, (LPARAM)&cds);
+
+  return true;
+}
+
+bool removeFileWatch(int token, HWND hwnd) {
+  HWND wnd = FindWindow(nullptr, "Watcher");
+  if (!wnd)
+    return false;
+
+  WatchDataBase data(false, token, hwnd);
+  COPYDATASTRUCT cds;
+  cds.dwData = 0;
+  cds.cbData = sizeof(data);
+  cds.lpData = &data;
+  SendMessage(wnd, WM_COPYDATA, (WPARAM)gWnd, (LPARAM)&cds);
+
+  return true;
+}
